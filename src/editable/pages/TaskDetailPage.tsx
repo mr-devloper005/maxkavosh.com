@@ -194,7 +194,7 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--slot4-accent)]">{category}</p>
               <h1 className="mt-3 text-3xl font-black leading-tight text-[var(--slot4-page-text)] sm:text-4xl">{post.title}</h1>
               
-              <p className="mt-4 text-sm leading-7 text-slate-600">{summaryText(post) || getBody(post)}</p>
+             
              
             </div>
           </div>
