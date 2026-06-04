@@ -193,9 +193,7 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--slot4-accent)]">{category}</p>
               <h1 className="mt-3 text-3xl font-black leading-tight text-[var(--slot4-page-text)] sm:text-4xl">{post.title}</h1>
-              
-             
-             
+            
             </div>
           </div>
 
