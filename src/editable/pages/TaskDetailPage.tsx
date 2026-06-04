@@ -259,7 +259,6 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
     </section>
   )
 }
-
 function ClassifiedDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
   const images = getImages(post)
   const price = getField(post, ['price', 'amount', 'budget'])
