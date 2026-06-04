@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Bookmark, Building2, Camera, CheckCircle2, Download, ExternalLink, FileText, Globe2, Mail, MapPin, MessageCircle, Phone, Tag, UserRound } from 'lucide-react'
+import { ArrowLeft, Bookmark, Building2, Camera, CheckCircle2, Download, ExternalLink, FileText, Globe2, Mail, MapPin, MessageCircle, Minus, Phone, Plus, ShieldCheck, Tag, UserRound } from 'lucide-react'
 import { buildPostMetadata, buildTaskMetadata } from '@/lib/seo'
 import { buildPostUrl, fetchArticleComments, fetchTaskPostBySlug, fetchTaskPosts } from '@/lib/task-data'
-import { getTaskConfig, SITE_CONFIG, type TaskKey } from '@/lib/site-config'
+import { getTaskConfig, type TaskKey } from '@/lib/site-config'
 import type { SitePost } from '@/lib/site-connector'
 import { EditableSiteShell } from '@/editable/shell/EditableSiteShell'
 import { getVisualPreset, visualSystem } from '@/editable/theme/visual-system'
+import { globalContent } from '@/editable/content/global.content'
 
 export const revalidate = 3
 
@@ -151,35 +152,108 @@ function ArticleDetail({ post, related, comments }: { post: SitePost; related: S
 
 function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
   const images = getImages(post)
-  const logo = images[0]
+  const mainImage = images[0]
   const address = getField(post, ['address', 'location', 'city'])
   const phone = getField(post, ['phone', 'telephone', 'mobile'])
   const email = getField(post, ['email'])
   const website = getField(post, ['website', 'url'])
-  const mapSrc = mapSrcFor(post)
+  const price = getField(post, ['price', 'amount', 'mrp']) || 'Price on request'
+  const category = categoryOf(post, 'Business listing')
+  const seller = getField(post, ['company', 'seller', 'businessName', 'name']) || post.title
+  const city = getField(post, ['city', 'location']) || 'India'
+  const specs = [
+    ['Category', category],
+    ['Business Type', getField(post, ['businessType', 'type']) || 'Supplier / Service Provider'],
+    ['Location', address || city],
+    ['Minimum Order', getField(post, ['moq', 'minimumOrder', 'minimumQuantity']) || 'Contact seller'],
+    ['Availability', getField(post, ['availability', 'stock']) || 'In stock / On request'],
+    ['Payment Mode', getField(post, ['paymentMode', 'payment']) || 'Online / Bank transfer'],
+    ['Delivery', getField(post, ['delivery', 'deliveryTime']) || 'As discussed with seller'],
+    ['GST / Tax', getField(post, ['gst', 'gstin', 'tax']) || 'Available on request'],
+  ]
   return (
-    <section className="mx-auto max-w-[var(--editable-container)] px-4 py-10 sm:px-6 lg:px-8 lg:py-16">
-      <BackLink task="listing" />
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <article className="rounded-[2.8rem] border border-[var(--editable-border)] bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.09)] sm:p-9">
-          <div className="grid gap-6 sm:grid-cols-[150px_1fr]">
-            <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-[2rem] bg-[var(--detail-bg)] ring-1 ring-[var(--editable-border)]">
-              {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : <Building2 className="h-14 w-14 opacity-40" />}
-            </div>
+    <section className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div className="mb-4"><BackLink task="listing" /></div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <article className="min-w-0">
+          <div className="grid gap-6 rounded-lg border border-slate-200 bg-white p-4 shadow-[0_12px_34px_rgba(15,39,63,0.08)] md:grid-cols-[420px_minmax(0,1fr)]">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-[var(--detail-accent)]">Business listing</p>
-              <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{post.title}</h1>
-              <p className="mt-5 max-w-3xl text-base leading-8 opacity-70">{summaryText(post)}</p>
+              <div className="grid min-h-[360px] place-items-center rounded-md border border-slate-200 bg-slate-50">
+                {mainImage ? <img src={mainImage} alt={post.title} className="max-h-[340px] w-full object-contain p-4" /> : <Building2 className="h-20 w-20 text-slate-300" />}
+              </div>
+              {images.length > 1 ? (
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {images.slice(0, 4).map((image, index) => (
+                    <img key={`${image}-${index}`} src={image} alt="" className="h-20 rounded-md border border-slate-200 bg-slate-50 object-cover p-1" />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--slot4-accent)]">{category}</p>
+              <h1 className="mt-3 text-3xl font-black leading-tight text-[var(--slot4-page-text)] sm:text-4xl">{post.title}</h1>
+              
+              <p className="mt-4 text-sm leading-7 text-slate-600">{summaryText(post) || getBody(post)}</p>
+             
             </div>
           </div>
-          <InfoGrid items={[['Location', address, MapPin], ['Phone', phone, Phone], ['Email', email, Mail], ['Website', website, Globe2]]} />
-          <BodyContent post={post} />
-          <ImageStrip images={images.slice(1)} label="Business showcase" />
+
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-2xl font-black">Product Specifications</h2>
+            <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
+              {specs.map(([label, value], index) => (
+                <div key={label} className={`grid grid-cols-[0.45fr_1fr] text-sm ${index % 2 ? 'bg-white' : 'bg-slate-50'}`}>
+                  <div className="border-r border-slate-200 px-4 py-3 font-black">{label}</div>
+                  <div className="px-4 py-3 text-slate-700">{value}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-2xl font-black">Company Details</h2>
+            <div className="mt-4 text-base leading-8 text-slate-700">
+              <BodyContent post={post} compact />
+            </div>
+            <InfoGrid items={[['Location', address, MapPin], ['Phone', phone, Phone], ['Email', email, Mail], ['Website', website, Globe2]]} />
+          </section>
+
+          <section className="mt-6">
+            <h2 className="text-2xl font-black">Related Products</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {related.map((item) => <RelatedProductCard key={item.id || item.slug} task="listing" post={item} />)}
+            </div>
+          </section>
         </article>
-        <aside className="space-y-5">
-          {mapSrc ? <MapBox src={mapSrc} label={address || post.title} /> : <ContactAction website={website} phone={phone} email={email} />}
-          {mapSrc ? <ContactAction website={website} phone={phone} email={email} /> : null}
-          <RelatedPanel task="listing" post={post} related={related} compact />
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="rounded-lg border border-slate-200 bg-slate-100 p-4">
+            <h2 className="text-lg font-black">Seller Details</h2>
+            <div className="mt-4 flex gap-3">
+              <div className="grid h-12 w-12 place-items-center rounded-md border border-slate-300 bg-white text-lg font-black text-blue-700">{seller.slice(0, 1).toUpperCase()}</div>
+              <div className="min-w-0">
+                <p className="line-clamp-2 font-black underline">{seller}</p>
+                <p className="mt-1 text-sm text-slate-600">{city}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 text-sm text-slate-700">
+              <p className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-600" /> Verified seller profile</p>
+              {address ? <p className="inline-flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4" /> {address}</p> : null}
+              {phone ? <p className="inline-flex items-center gap-2"><Phone className="h-4 w-4" /> {phone}</p> : null}
+            </div>
+            <div className="mt-5 grid gap-3">
+              {phone ? <a href={`tel:${phone}`} className="inline-flex h-12 items-center justify-center rounded-full border border-[var(--slot4-blue)] text-sm font-black text-[var(--slot4-blue)]">View Number</a> : <Link href="/contact" className="inline-flex h-12 items-center justify-center rounded-full border border-[var(--slot4-blue)] text-sm font-black text-[var(--slot4-blue)]">View Number</Link>}
+              <Link href="/contact" className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--slot4-blue)] text-sm font-black text-white">Contact Seller</Link>
+            </div>
+          </div>
+
+
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xl font-black text-red-500">TO LIST YOUR</p>
+            <p className="text-2xl font-black text-[var(--slot4-blue)]">PRODUCT</p>
+            <Link href="/create" className="mt-4 inline-flex rounded-md bg-[var(--slot4-blue)] px-5 py-3 text-sm font-black text-white">Register Now</Link>
+          </div>
         </aside>
       </div>
     </section>
@@ -384,8 +458,7 @@ function RelatedPanel({ task, post, related, compact = false }: { task: TaskKey;
           <p className="text-xs font-black uppercase tracking-[0.22em] opacity-55">About this post</p>
           <div className="mt-4 grid gap-3 text-sm font-bold opacity-75">
             <p className="inline-flex items-center gap-2"><Tag className="h-4 w-4" /> Task: {taskConfig?.label || task}</p>
-            <p className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Site: {SITE_CONFIG.name}</p>
-            {post.publishedAt ? <p>Published: {new Date(post.publishedAt).toLocaleDateString()}</p> : null}
+            <p className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Site: {globalContent.site.name}</p>
           </div>
         </div>
       ) : null}
@@ -415,6 +488,29 @@ function RelatedCard({ task, post }: { task: TaskKey; post: SitePost }) {
       </div>
     </Link>
   )
+}
+
+function RelatedProductCard({ task, post }: { task: TaskKey; post: SitePost }) {
+  const image = getImages(post)[0]
+  const price = getField(post, ['price', 'amount', 'mrp']) || 'Price on request'
+  const location = getField(post, ['location', 'city', 'address']) || 'India'
+  return (
+    <Link href={buildPostUrl(task, post.slug)} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="grid h-36 place-items-center border-b border-slate-200 bg-slate-50">
+        {image ? <img src={image} alt="" className="h-full w-full object-contain p-3" /> : <PackageIcon />}
+      </div>
+      <div className="p-4">
+        <h3 className="line-clamp-2 min-h-[44px] text-base font-semibold leading-snug text-blue-800">{post.title}</h3>
+        <p className="mt-2 text-sm font-black text-slate-950">{price}</p>
+        <p className="mt-1 text-xs text-slate-600">{location}</p>
+        <span className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-[var(--slot4-blue)] text-sm font-black text-white">Send Inquiry</span>
+      </div>
+    </Link>
+  )
+}
+
+function PackageIcon() {
+  return <Building2 className="h-10 w-10 text-slate-300" />
 }
 
 function EditableComments({ slug, comments }: { slug: string; comments: Array<{ id: string; name: string; comment: string; createdAt: string }> }) {
