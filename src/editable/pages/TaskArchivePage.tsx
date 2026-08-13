@@ -23,6 +23,23 @@ const getContent = (post: SitePost) => post.content && typeof post.content === '
 const asText = (value: unknown) => typeof value === 'string' ? value.trim() : ''
 const isUrl = (value: string) => value.startsWith('/') || /^https?:\/\//i.test(value)
 
+const HTML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', hellip: '…', mdash: '—', ndash: '–', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”' }
+const fromCode = (code: number, fallback: string) => code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : fallback
+const decodeEntities = (value: string) => value
+  .replace(/&#x([0-9a-f]+);/gi, (match, code) => fromCode(parseInt(code, 16), match))
+  .replace(/&#(\d+);/g, (match, code) => fromCode(Number(code), match))
+  .replace(/&([a-z]+);/gi, (match, name) => HTML_ENTITIES[name.toLowerCase()] ?? match)
+const stripHtml = (value: string) => value
+  .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+  .replace(/<!--[\s\S]*?-->/g, ' ')
+  .replace(/<[^>]*>/g, ' ')
+// Card text is rendered as escaped text, so any markup in the feed must be unwrapped first.
+const plainText = (value: unknown, limit = 260) => {
+  if (typeof value !== 'string') return ''
+  const clean = decodeEntities(stripHtml(value)).replace(/\s+/g, ' ').trim()
+  return clean.length > limit ? `${clean.slice(0, limit).trim()}…` : clean
+}
+
 const getImages = (post: SitePost) => {
   const content = getContent(post)
   const media = Array.isArray(post.media) ? post.media.map((item) => item?.url).filter((url): url is string => typeof url === 'string' && isUrl(url)) : []
@@ -34,12 +51,12 @@ const getImages = (post: SitePost) => {
 
 const placeholder = '/placeholder.svg?height=900&width=1200'
 const getImage = (post: SitePost) => getImages(post)[0] || placeholder
-const getCategory = (post: SitePost, fallback: string) => asText(getContent(post).category) || post.tags?.[0] || fallback
-const getSummary = (post: SitePost) => post.summary || asText(getContent(post).description) || asText(getContent(post).excerpt) || asText(getContent(post).body)
+const getCategory = (post: SitePost, fallback: string) => plainText(getContent(post).category, 60) || plainText(post.tags?.[0], 60) || fallback
+const getSummary = (post: SitePost) => plainText(post.summary) || plainText(getContent(post).description) || plainText(getContent(post).excerpt) || plainText(getContent(post).body)
 const getField = (post: SitePost, keys: string[]) => {
   const content = getContent(post)
   for (const key of keys) {
-    const value = asText(content[key])
+    const value = plainText(content[key], 120)
     if (value) return value
   }
   return ''

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Bookmark, Building2, Camera, CheckCircle2, Download, ExternalLink, FileText, Globe2, Mail, MapPin, MessageCircle, Minus, Phone, Plus, ShieldCheck, Tag, UserRound } from 'lucide-react'
+import { ArrowLeft, Bookmark, Building2, Camera, CheckCircle2, Download, ExternalLink, FileText, Globe2, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Tag, UserRound } from 'lucide-react'
 import { buildPostMetadata, buildTaskMetadata } from '@/lib/seo'
 import { buildPostUrl, fetchArticleComments, fetchTaskPostBySlug, fetchTaskPosts } from '@/lib/task-data'
 import { getTaskConfig, type TaskKey } from '@/lib/site-config'
@@ -96,14 +96,6 @@ const formatPlainText = (raw: string) => {
 
 const summaryText = (post: SitePost) => post.summary || asText(getContent(post).description) || asText(getContent(post).excerpt) || ''
 const categoryOf = (post: SitePost, fallback: string) => asText(getContent(post).category) || post.tags?.[0] || fallback
-const mapSrcFor = (post: SitePost) => {
-  const address = getField(post, ['address', 'location', 'city'])
-  const lat = getField(post, ['lat', 'latitude'])
-  const lng = getField(post, ['lng', 'lon', 'longitude'])
-  if (lat && lng) return `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}&z=14&output=embed`
-  if (address) return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=13&output=embed`
-  return ''
-}
 
 export function TaskDetailView({ task, post, related, comments = [] }: { task: TaskKey; post: SitePost; related: SitePost[]; comments?: Array<{ id: string; name: string; comment: string; createdAt: string }> }) {
   const preset = getVisualPreset(visualSystem.recommendedPreset as any)
@@ -145,7 +137,7 @@ function ArticleDetail({ post, related, comments }: { post: SitePost; related: S
         <BodyContent post={post} />
         <EditableComments slug={post.slug} comments={comments} />
       </article>
-      <RelatedPanel task="article" post={post} related={related} />
+      <RelatedPanel task="article" related={related} />
     </section>
   )
 }
@@ -157,7 +149,6 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
   const phone = getField(post, ['phone', 'telephone', 'mobile'])
   const email = getField(post, ['email'])
   const website = getField(post, ['website', 'url'])
-  const price = getField(post, ['price', 'amount', 'mrp']) || 'Price on request'
   const category = categoryOf(post, 'Business listing')
   const seller = getField(post, ['company', 'seller', 'businessName', 'name']) || post.title
   const city = getField(post, ['city', 'location']) || 'India'
@@ -287,7 +278,7 @@ function ClassifiedDetail({ post, related }: { post: SitePost; related: SitePost
         <ImageStrip images={images} label="Offer images" large />
         <BodyContent post={post} />
         <ContactAction website={website} phone={phone} email={email} />
-        <RelatedPanel task="classified" post={post} related={related} />
+        <RelatedPanel task="classified" related={related} />
       </article>
     </section>
   )
@@ -314,7 +305,7 @@ function ImageDetail({ post, related }: { post: SitePost; related: SitePost[] })
           ))}
         </div>
       </div>
-      <div className="mt-10"><RelatedPanel task="image" post={post} related={related} /></div>
+      <div className="mt-10"><RelatedPanel task="image" related={related} /></div>
     </section>
   )
 }
@@ -331,7 +322,7 @@ function BookmarkDetail({ post, related }: { post: SitePost; related: SitePost[]
         {website ? <Link href={website} target="_blank" rel="noreferrer" className="mt-8 inline-flex items-center gap-2 rounded-full bg-[var(--detail-text)] px-5 py-3 text-sm font-black text-[var(--detail-bg)]">Open saved resource <ExternalLink className="h-4 w-4" /></Link> : null}
         <BodyContent post={post} />
       </article>
-      <RelatedPanel task="sbm" post={post} related={related} />
+      <RelatedPanel task="sbm" related={related} />
     </section>
   )
 }
@@ -360,7 +351,7 @@ function PdfDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
           </div>
         ) : null}
       </article>
-      <RelatedPanel task="pdf" post={post} related={related} />
+      <RelatedPanel task="pdf" related={related} />
     </section>
   )
 }
@@ -384,7 +375,7 @@ function ProfileDetail({ post, related }: { post: SitePost; related: SitePost[] 
       <article className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-7 shadow-sm sm:p-10">
         <BodyContent post={post} />
         <ImageStrip images={images.slice(1)} label="Profile gallery" />
-        <RelatedPanel task="profile" post={post} related={related} />
+        <RelatedPanel task="profile" related={related} />
       </article>
     </section>
   )
@@ -421,15 +412,6 @@ function ImageStrip({ images, label, large = false }: { images: string[]; label:
   )
 }
 
-function MapBox({ src, label }: { src: string; label: string }) {
-  return (
-    <div className="overflow-hidden rounded-[2rem] border border-[var(--editable-border)] bg-white shadow-sm">
-      <div className="flex items-center gap-2 p-4 text-sm font-black"><MapPin className="h-4 w-4" /> {label || 'Map location'}</div>
-      <iframe src={src} title="Map" loading="lazy" className="h-80 w-full border-0" />
-    </div>
-  )
-}
-
 function ContactAction({ website, phone, email }: { website?: string; phone?: string; email?: string }) {
   if (!website && !phone && !email) return null
   return (
@@ -448,7 +430,7 @@ function BadgeLine({ label, value }: { label: string; value: string }) {
   return <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm"><span className="font-black uppercase tracking-[0.16em] opacity-60">{label}</span><span className="font-black">{value}</span></div>
 }
 
-function RelatedPanel({ task, post, related, compact = false }: { task: TaskKey; post: SitePost; related: SitePost[]; compact?: boolean }) {
+function RelatedPanel({ task, related, compact = false }: { task: TaskKey; related: SitePost[]; compact?: boolean }) {
   const taskConfig = getTaskConfig(task)
   return (
     <aside className="min-w-0 space-y-5">

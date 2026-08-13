@@ -20,8 +20,18 @@ export async function generateMetadata(): Promise<Metadata> {
   })
 }
 
-const stripHtml = (value: string) => value.replace(/<[^>]*>/g, ' ')
-const compactText = (value: unknown) => typeof value === 'string' ? stripHtml(value).replace(/\s+/g, ' ').trim().toLowerCase() : ''
+const HTML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', hellip: '…', mdash: '—', ndash: '–', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”' }
+const fromCode = (code: number, fallback: string) => code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : fallback
+const decodeEntities = (value: string) => value
+  .replace(/&#x([0-9a-f]+);/gi, (match, code) => fromCode(parseInt(code, 16), match))
+  .replace(/&#(\d+);/g, (match, code) => fromCode(Number(code), match))
+  .replace(/&([a-z]+);/gi, (match, name) => HTML_ENTITIES[name.toLowerCase()] ?? match)
+const stripHtml = (value: string) => value
+  .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+  .replace(/<!--[\s\S]*?-->/g, ' ')
+  .replace(/<[^>]*>/g, ' ')
+const plainText = (value: unknown) => typeof value === 'string' ? decodeEntities(stripHtml(value)).replace(/\s+/g, ' ').trim() : ''
+const compactText = (value: unknown) => plainText(value).toLowerCase()
 const compactRaw = (value: unknown) => typeof value === 'string' ? value.trim() : ''
 const getContent = (post: SitePost) => post.content && typeof post.content === 'object' ? post.content as Record<string, unknown> : {}
 const getImage = (post: SitePost) => {
@@ -30,15 +40,23 @@ const getImage = (post: SitePost) => {
   const images = Array.isArray(content.images) ? content.images.find((item) => typeof item === 'string') as string | undefined : ''
   return media || compactRaw(content.featuredImage) || compactRaw(content.image) || compactRaw(content.thumbnail) || images || ''
 }
-const summaryOf = (post: SitePost) => post.summary || compactRaw(getContent(post).description) || compactRaw(getContent(post).excerpt) || ''
-const locationOf = (post: SitePost) => compactRaw(getContent(post).city) || compactRaw(getContent(post).location) || compactRaw(getContent(post).address) || 'India'
+const summaryOf = (post: SitePost) => plainText(post.summary) || plainText(getContent(post).description) || plainText(getContent(post).excerpt) || ''
+const locationOf = (post: SitePost) => plainText(getContent(post).city) || plainText(getContent(post).location) || plainText(getContent(post).address) || 'India'
 
-const matches = (post: SitePost, query: string, category: string, task: string) => {
+const ENABLED_TASKS = SITE_CONFIG.tasks.filter((item) => item.enabled)
+const ENABLED_TASK_KEYS = new Set<TaskKey>(ENABLED_TASKS.map((item) => item.key))
+
+// Only tasks enabled for this site have a detail route in SITE_CONFIG.taskViews.
+// Anything else would link to the non-existent /posts/<slug> fallback and 404.
+const detailTaskOf = (post: SitePost): TaskKey | null => {
+  const task = getPostTaskKey(post)
+  return task && ENABLED_TASK_KEYS.has(task) ? task : null
+}
+
+const matches = (post: SitePost, resolvedTask: TaskKey, query: string, category: string, task: string) => {
   const content = getContent(post)
-  const typeText = compactText(content.type)
-  if (typeText === 'comment') return false
-  const derivedTask = getPostTaskKey(post) || typeText
-  if (task && derivedTask !== task) return false
+  if (compactText(content.type) === 'comment') return false
+  if (task && resolvedTask !== task) return false
   const categoryText = compactText(content.category)
   const tagsText = compactText(Array.isArray(post.tags) ? post.tags.join(' ') : '')
   if (category && !(categoryText || tagsText || compactText(content.city) || compactText(content.location)).includes(category)) return false
@@ -47,12 +65,11 @@ const matches = (post: SitePost, query: string, category: string, task: string) 
     .some((value) => compactText(value).includes(query))
 }
 
-function SearchResultCard({ post }: { post: SitePost }) {
-  const task = getPostTaskKey(post) as TaskKey | null
-  const href = task ? buildPostUrl(task, post.slug) : `/listing/${post.slug}`
+function SearchResultCard({ post, task }: { post: SitePost; task: TaskKey }) {
+  const href = buildPostUrl(task, post.slug)
   const image = getImage(post)
   const summary = summaryOf(post)
-  const taskLabel = SITE_CONFIG.tasks.find((item) => item.key === task)?.label || 'Listing'
+  const taskLabel = ENABLED_TASKS.find((item) => item.key === task)?.label || 'Listing'
 
   return (
     <Link href={href} className="group block overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,39,63,0.14)]">
@@ -78,9 +95,12 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
   const task = (resolved.task || '').trim().toLowerCase()
   const useMaster = resolved.master !== '0'
   const feed = await fetchSiteFeed(useMaster ? 1000 : 300, useMaster ? { fresh: true, category: category || undefined, task: task || undefined } : undefined)
-  const posts = feed?.posts?.length ? feed.posts : useMaster ? [] : SITE_CONFIG.tasks.filter((item) => item.enabled).flatMap((item) => getMockPostsForTask(item.key))
-  const results = posts.filter((post) => matches(post, normalized, category, task)).slice(0, normalized ? 80 : 36)
-  const enabledTasks = SITE_CONFIG.tasks.filter((item) => item.enabled)
+  const posts = feed?.posts?.length ? feed.posts : useMaster ? [] : ENABLED_TASKS.flatMap((item) => getMockPostsForTask(item.key))
+  const results = posts
+    .map((post) => ({ post, task: detailTaskOf(post) }))
+    .filter((item): item is { post: SitePost; task: TaskKey } => Boolean(item.task) && matches(item.post, item.task as TaskKey, normalized, category, task))
+    .slice(0, normalized ? 80 : 36)
+  const enabledTasks = ENABLED_TASKS
 
   return (
     <EditableSiteShell>
@@ -122,7 +142,7 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
 
           {results.length ? (
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {results.map((post) => <SearchResultCard key={post.id || post.slug} post={post} />)}
+              {results.map(({ post, task: postTask }) => <SearchResultCard key={post.id || post.slug} post={post} task={postTask} />)}
             </div>
           ) : (
             <div className="mt-8 rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
