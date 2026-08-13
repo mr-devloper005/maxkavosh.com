@@ -251,7 +251,7 @@ export function EditableMagazineSplit({ primaryTask, primaryRoute, posts }: Home
   )
 }
 
-export function EditableTimeCollections({ posts, primaryTask, primaryRoute }: HomeSectionProps) {
+export function EditableTimeCollections({ posts }: HomeSectionProps) {
   const images = posts.map((post) => getEditablePostImage(post))
   return (
     <section className="bg-[var(--slot4-page-bg)]">
