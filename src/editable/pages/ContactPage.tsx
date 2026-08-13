@@ -1,6 +1,6 @@
 'use client'
 
-import { Building2, Mail, MapPin, Phone, Search, ShieldCheck } from 'lucide-react'
+import { Building2, MapPin, Search, ShieldCheck } from 'lucide-react'
 import { pagesContent } from '@/editable/content/pages.content'
 import { EditableContactLeadForm } from '@/editable/components/EditableContactLeadForm'
 import { EditableSiteShell } from '@/editable/shell/EditableSiteShell'
